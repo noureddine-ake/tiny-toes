@@ -112,7 +112,7 @@ export default function CatalogPage() {
                   <p className="text-gray-600 text-sm line-clamp-2">{product.description}</p>
 
                   <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold text-green-600">${product.price}</div>
+                    <div className="text-2xl font-bold text-green-600">{product.price} MAD</div>
                     <div className="text-sm text-gray-500">Sizes: {product.sizes.join(", ")}</div>
                   </div>
 
