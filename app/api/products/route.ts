@@ -25,27 +25,39 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
 
     const name = formData.get("name") as string
-    const description = formData.get("description") as string
     const price = Number.parseFloat(formData.get("price") as string)
     const gender = formData.get("gender") as "boys" | "girls"
+    const season = formData.get("season") as "winter" | "summer" | "autumn"
+    const stock = Number.parseInt(formData.get("stock") as string)
     const sizes = JSON.parse(formData.get("sizes") as string)
-    const imageFile = formData.get("image") as File
+    const imagesData = JSON.parse(formData.get("imagesData") as string)
 
-    if (!name || !description || !price || !gender || !sizes || !imageFile) {
+    if (!name || !price || !gender || !season || stock === undefined || !sizes || !imagesData) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Convert image to base64
-    const { data: imageData, mimeType } = await ProductService.fileToBase64(imageFile)
+    // Process images
+    const images = []
+    for (const imageInfo of imagesData) {
+      const imageFile = formData.get(`image_${imageInfo.index}`) as File
+      if (imageFile) {
+        const { data: imageData, mimeType } = await ProductService.fileToBase64(imageFile)
+        images.push(ProductService.createProductImage(imageData, mimeType, imageInfo.color, imageInfo.isPrimary))
+      }
+    }
+
+    if (images.length === 0) {
+      return NextResponse.json({ error: "At least one image is required" }, { status: 400 })
+    }
 
     const product = await ProductService.createProduct({
       name,
-      description,
       price,
       gender,
+      season,
+      stock,
       sizes,
-      imageData,
-      imageMimeType: mimeType,
+      images,
     })
 
     return NextResponse.json({ product }, { status: 201 })

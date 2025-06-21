@@ -1,8 +1,16 @@
 import { getRedisClient, type Product, REDIS_KEYS } from "./db"
 export type { Product } from "./db"
 
+export interface ProductImage {
+  id: string
+  color: string
+  imageData: string
+  imageMimeType: string
+  isPrimary: boolean
+}
+
 export class ProductService {
-  // Create a new product with image
+  // Create a new product with multiple images
   static async createProduct(productData: Omit<Product, "id" | "createdAt" | "updatedAt">): Promise<Product> {
     const redis = getRedisClient()
     const id = `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -19,6 +27,7 @@ export class ProductService {
     await redis.hset(REDIS_KEYS.PRODUCT(id), {
       ...product,
       sizes: JSON.stringify(product.sizes),
+      images: JSON.stringify(product.images),
     })
 
     // Add to products set
@@ -47,6 +56,7 @@ export class ProductService {
         products.push({
           ...product,
           sizes: typeof product.sizes === "string" ? JSON.parse(product.sizes) : product.sizes,
+          images: typeof product.images === "string" ? JSON.parse(product.images) : product.images,
           price: typeof product.price === "string" ? Number.parseFloat(product.price) : product.price,
         } as Product)
       }
@@ -72,6 +82,7 @@ export class ProductService {
         products.push({
           ...product,
           sizes: typeof product.sizes === "string" ? JSON.parse(product.sizes) : product.sizes,
+          images: typeof product.images === "string" ? JSON.parse(product.images) : product.images,
           price: typeof product.price === "string" ? Number.parseFloat(product.price) : product.price,
         } as Product)
       }
@@ -92,6 +103,7 @@ export class ProductService {
     return {
       ...product,
       sizes: typeof product.sizes === "string" ? JSON.parse(product.sizes) : product.sizes,
+      images: typeof product.images === "string" ? JSON.parse(product.images) : product.images,
       price: typeof product.price === "string" ? Number.parseFloat(product.price) : product.price,
     } as Product
   }
@@ -114,6 +126,7 @@ export class ProductService {
     await redis.hset(REDIS_KEYS.PRODUCT(id), {
       ...updatedProduct,
       sizes: JSON.stringify(updatedProduct.sizes),
+      images: JSON.stringify(updatedProduct.images),
     })
 
     return updatedProduct
@@ -138,17 +151,84 @@ export class ProductService {
     return true
   }
 
+  // Get primary image for display
+  static getPrimaryImage(product: Product): ProductImage | null {
+    const primaryImage = product.images.find((img) => img.isPrimary)
+    return primaryImage || product.images[0] || null
+  }
+
   // Convert base64 to data URL for display
   static base64ToDataUrl(base64Data: string, mimeType: string): string {
     return `data:${mimeType};base64,${base64Data}`
   }
 
   static async fileToBase64(file: File): Promise<{ data: string; mimeType: string }> {
-  const buffer = await file.arrayBuffer()
-  const base64String = Buffer.from(buffer).toString("base64")
-  return {
-    data: base64String,
-    mimeType: file.type,
+    const buffer = await file.arrayBuffer()
+    const base64String = Buffer.from(buffer).toString("base64")
+    return {
+      data: base64String,
+      mimeType: file.type,
+    }
   }
-}
+
+  // Helper method to create ProductImage
+  static createProductImage(imageData: string, imageMimeType: string, color: string, isPrimary = false): ProductImage {
+    return {
+      id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      color,
+      imageData,
+      imageMimeType,
+      isPrimary,
+    }
+  }
+
+  // Update stock
+  static async updateStock(id: string, newStock: number): Promise<Product | null> {
+    const product = await this.getProduct(id)
+
+    if (!product) {
+      return null
+    }
+
+    return await this.updateProduct(id, { stock: newStock })
+  }
+
+  // Check if product is in stock
+  static isInStock(product: Product): boolean {
+    return product.stock > 0
+  }
+
+  // Get products by season
+  static async getProductsBySeason(season: "winter" | "summer" | "autumn"): Promise<Product[]> {
+    const allProducts = await this.getAllProducts()
+    return allProducts.filter((product) => product.season === season)
+  }
+
+  // Get products with filters
+  static async getProductsWithFilters(filters: {
+    gender?: "boys" | "girls"
+    season?: "winter" | "summer" | "autumn"
+    size?: number
+    inStockOnly?: boolean
+  }): Promise<Product[]> {
+    let products = await this.getAllProducts()
+
+    if (filters.gender) {
+      products = products.filter((product) => product.gender === filters.gender)
+    }
+
+    if (filters.season) {
+      products = products.filter((product) => product.season === filters.season)
+    }
+
+    if (filters.size) {
+      products = products.filter((product) => product.sizes.includes(filters.size))
+    }
+
+    if (filters.inStockOnly) {
+      products = products.filter((product) => this.isInStock(product))
+    }
+
+    return products
+  }
 }

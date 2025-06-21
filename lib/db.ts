@@ -25,14 +25,22 @@ export function getRedisClient() {
 export interface Product {
   id: string
   name: string
-  description: string
   price: number
-  imageData: string // base64 encoded image
-  imageMimeType: string // image/jpeg, image/png, etc.
+  images: ProductImage[] // Changed from single image to array
   gender: "boys" | "girls"
   sizes: number[]
+  stock: number
+  season: "winter" | "summer" | "autumn"
   createdAt: string
   updatedAt: string
+}
+
+export interface ProductImage {
+  id: string
+  color: string
+  imageData: string // base64 encoded image
+  imageMimeType: string // image/jpeg, image/png, etc.
+  isPrimary: boolean // Mark one image as primary for display
 }
 
 // Redis keys
